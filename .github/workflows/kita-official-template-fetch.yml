@@ -1,0 +1,46 @@
+name: Fetch public KITA official templates (isolated)
+on:
+  push:
+    branches:
+      - automation/kita-official-templates-20261030
+    paths:
+      - .github/workflows/kita-official-template-fetch.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch-public-templates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/kita-official-templates-20261030
+      - name: Download public original Office templates and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p kita_official_public
+          base='https://www.city.kita.lg.jp/_res/projects/default_project/_page_/001/026/502'
+          for filename in entry.docx pr.pptx; do
+            curl --fail --location --retry 3 --connect-timeout 10 --max-time 60 \
+              --user-agent 'Mozilla/5.0' "$base/$filename" -o "kita_official_public/$filename"
+            python - "$filename" <<'PY'
+          import sys, zipfile, os
+          f='kita_official_public/'+sys.argv[1]
+          assert os.path.getsize(f)>10000, f
+          assert zipfile.is_zipfile(f), f
+          print('OFFICIAL_TEMPLATE_VALIDATED',sys.argv[1],os.path.getsize(f))
+          PY
+            base64 -w 76 "kita_official_public/$filename" > "kita_official_public/$filename.base64.txt"
+            rm "kita_official_public/$filename"
+          done
+      - name: Save public official template bytes to this isolated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kita_official_public/*.base64.txt
+          git commit -m "Store verified public KITA templates for offline transfer"
+          git push origin HEAD:automation/kita-official-templates-20261030
