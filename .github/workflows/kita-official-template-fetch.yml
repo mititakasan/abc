@@ -33,8 +33,15 @@ jobs:
           print('OFFICIAL_TEMPLATE_VALIDATED',sys.argv[1],os.path.getsize(f))
           PY
             base64 -w 76 "kita_official_public/$filename" > "kita_official_public/$filename.base64.txt"
-            rm "kita_official_public/$filename"
+            # Retain originals for Actions artifact transfer
           done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kita-official-public-originals
+          path: |
+            kita_official_public/entry.docx
+            kita_official_public/pr.pptx
+          retention-days: 2
       - name: Save public official template bytes to this isolated branch
         shell: bash
         run: |
